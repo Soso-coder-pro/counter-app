@@ -1,6 +1,7 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { PromptModal } from '../src/components/PromptModal';
 import { useCounterStore } from '../src/store/useCounterStore';
@@ -10,7 +11,10 @@ import { useTheme } from '../src/theme/colors';
 export default function ListsScreen() {
   const colors = useTheme();
   const router = useRouter();
-  const lists = useCounterStore((s) => s.getListsSorted());
+  // `getListsSorted()` renvoie un nouveau tableau à chaque appel : sans
+  // useShallow, useSyncExternalStore voit une référence différente à chaque
+  // rendu et boucle ("Maximum update depth exceeded").
+  const lists = useCounterStore(useShallow((s) => s.getListsSorted()));
   const getCountersForList = useCounterStore((s) => s.getCountersForList);
   const getListTotals = useCounterStore((s) => s.getListTotals);
   const addList = useCounterStore((s) => s.addList);

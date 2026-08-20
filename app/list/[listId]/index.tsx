@@ -1,6 +1,7 @@
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { PromptModal } from '../../../src/components/PromptModal';
 import type { Counter } from '../../../src/store/types';
@@ -13,8 +14,13 @@ export default function ListScreen() {
   const router = useRouter();
 
   const list = useCounterStore((s) => s.lists.find((l) => l.id === listId));
-  const counters = useCounterStore((s) => (listId ? s.getCountersForList(listId) : []));
-  const { sum, average } = useCounterStore((s) => (listId ? s.getListTotals(listId) : { sum: 0, average: 0, count: 0 }));
+  // useShallow : ces deux sélecteurs recréent un tableau/objet à chaque appel
+  // (via getCountersForList/getListTotals), ce qui casse la comparaison par
+  // référence de useSyncExternalStore et boucle sans lui.
+  const counters = useCounterStore(useShallow((s) => (listId ? s.getCountersForList(listId) : [])));
+  const { sum, average } = useCounterStore(
+    useShallow((s) => (listId ? s.getListTotals(listId) : { sum: 0, average: 0, count: 0 }))
+  );
   const addCounter = useCounterStore((s) => s.addCounter);
   const toggleNewCounterAtTop = useCounterStore((s) => s.toggleNewCounterAtTop);
   const [modalVisible, setModalVisible] = useState(false);

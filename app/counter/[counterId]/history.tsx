@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import type { HistoryEntry } from '../../../src/store/types';
 import { useCounterStore } from '../../../src/store/useCounterStore';
@@ -18,7 +19,7 @@ export default function HistoryScreen() {
   const { counterId } = useLocalSearchParams<{ counterId: string }>();
   const colors = useTheme();
   const counter = useCounterStore((s) => s.counters.find((c) => c.id === counterId));
-  const history = useCounterStore((s) => (counterId ? s.getHistoryForCounter(counterId) : []));
+  const history = useCounterStore(useShallow((s) => (counterId ? s.getHistoryForCounter(counterId) : [])));
 
   function renderItem({ item }: { item: HistoryEntry }) {
     const positive = item.delta >= 0;

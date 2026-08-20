@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { VolumeManager } from 'react-native-volume-manager';
+import type { VolumeResult } from 'react-native-volume-manager';
 
 const NEUTRAL_VOLUME = 0.5;
 
@@ -9,10 +9,14 @@ const NEUTRAL_VOLUME = 0.5;
  * 50% et en observant si l'appui suivant le fait monter ou descendre.
  *
  * ⚠️ Nécessite un Development Build (EAS, profil "development") : le module
- * natif react-native-volume-manager n'est pas embarqué dans Expo Go. Dans
- * Expo Go, les appels natifs ci-dessous échouent silencieusement (catch) et
- * le hook ne fait simplement rien — l'app reste utilisable avec les boutons
- * à l'écran.
+ * natif react-native-volume-manager n'est pas embarqué dans Expo Go.
+ *
+ * Important : quand le module natif n'est pas lié, `react-native-volume-manager`
+ * lève une erreur dès son ÉVALUATION (à l'import), pas seulement quand on
+ * appelle une de ses fonctions — un `import` statique en haut de fichier ferait
+ * donc planter tout ce module (et par ricochet l'écran qui l'importe) avant
+ * même d'atteindre un try/catch. On charge donc le module à la demande, à
+ * l'intérieur du try, pour que l'échec reste local et silencieux dans Expo Go.
  */
 export function useVolumeButtons(onVolumeUp: () => void, onVolumeDown: () => void, enabled: boolean) {
   const lastVolume = useRef<number>(NEUTRAL_VOLUME);
@@ -29,12 +33,13 @@ export function useVolumeButtons(onVolumeUp: () => void, onVolumeDown: () => voi
 
     (async () => {
       try {
+        const { VolumeManager } = await import('react-native-volume-manager');
         await VolumeManager.showNativeVolumeUI({ enabled: false });
         await VolumeManager.setVolume(NEUTRAL_VOLUME, { showUI: false });
         if (cancelled) return;
         lastVolume.current = NEUTRAL_VOLUME;
 
-        subscription = VolumeManager.addVolumeListener((result) => {
+        subscription = VolumeManager.addVolumeListener((result: VolumeResult) => {
           if (isRecentering.current) return;
           const previous = lastVolume.current;
           const next = result.volume;
@@ -64,7 +69,9 @@ export function useVolumeButtons(onVolumeUp: () => void, onVolumeDown: () => voi
     return () => {
       cancelled = true;
       subscription?.remove();
-      VolumeManager.showNativeVolumeUI({ enabled: true }).catch(() => {});
+      import('react-native-volume-manager')
+        .then(({ VolumeManager }) => VolumeManager.showNativeVolumeUI({ enabled: true }))
+        .catch(() => {});
     };
   }, [enabled]);
 }

@@ -1,0 +1,218 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+
+import { generateId } from '../utils/id';
+import type { AppSettings, Counter, CounterList, HistoryEntry, HistorySource, ID } from './types';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'system',
+  hapticsOnTap: true,
+  showMinusButton: true,
+  volumeButtonsEnabled: true,
+  keepScreenAwake: false,
+};
+
+/** Pas d'incrément proposés par défaut dans le sélecteur rapide. */
+export const STEP_PRESETS = [1, 2, 5, 10, 25, 50, 100] as const;
+
+interface CounterStoreState {
+  lists: CounterList[];
+  counters: Counter[];
+  history: HistoryEntry[];
+  settings: AppSettings;
+  hasHydrated: boolean;
+
+  // Listes
+  addList: (name: string) => ID;
+  renameList: (listId: ID, name: string) => void;
+  removeList: (listId: ID) => void;
+  toggleNewCounterAtTop: (listId: ID) => void;
+
+  // Compteurs
+  addCounter: (listId: ID, name: string, initialStep?: number) => ID;
+  renameCounter: (counterId: ID, name: string) => void;
+  removeCounter: (counterId: ID) => void;
+  setCounterStep: (counterId: ID, step: number) => void;
+  incrementCounter: (counterId: ID, source?: HistorySource) => void;
+  decrementCounter: (counterId: ID, source?: HistorySource) => void;
+  resetCounter: (counterId: ID) => void;
+
+  // Réglages
+  updateSettings: (patch: Partial<AppSettings>) => void;
+
+  // Sélecteurs dérivés (fonctions pures, pas d'état recalculé stocké)
+  getListsSorted: () => CounterList[];
+  getCountersForList: (listId: ID) => Counter[];
+  getHistoryForCounter: (counterId: ID) => HistoryEntry[];
+  getListTotals: (listId: ID) => { sum: number; average: number; count: number };
+}
+
+export const useCounterStore = create<CounterStoreState>()(
+  persist(
+    (set, get) => ({
+      lists: [],
+      counters: [],
+      history: [],
+      settings: DEFAULT_SETTINGS,
+      hasHydrated: false,
+
+      addList: (name) => {
+        const id = generateId();
+        const order = get().lists.length;
+        const newList: CounterList = {
+          id,
+          name: name.trim() || 'Nouvelle liste',
+          order,
+          createdAt: Date.now(),
+          newCounterAtTop: false,
+          hideSumAndAverage: false,
+        };
+        set((s) => ({ lists: [...s.lists, newList] }));
+        return id;
+      },
+
+      renameList: (listId, name) => {
+        set((s) => ({
+          lists: s.lists.map((l) => (l.id === listId ? { ...l, name: name.trim() || l.name } : l)),
+        }));
+      },
+
+      removeList: (listId) => {
+        set((s) => ({
+          lists: s.lists.filter((l) => l.id !== listId),
+          counters: s.counters.filter((c) => c.listId !== listId),
+          history: s.history.filter((h) => {
+            const counter = s.counters.find((c) => c.id === h.counterId);
+            return counter ? counter.listId !== listId : true;
+          }),
+        }));
+      },
+
+      toggleNewCounterAtTop: (listId) => {
+        set((s) => ({
+          lists: s.lists.map((l) => (l.id === listId ? { ...l, newCounterAtTop: !l.newCounterAtTop } : l)),
+        }));
+      },
+
+      addCounter: (listId, name, initialStep = 1) => {
+        const id = generateId();
+        const list = get().lists.find((l) => l.id === listId);
+        const siblings = get().counters.filter((c) => c.listId === listId);
+        const atTop = list?.newCounterAtTop ?? false;
+        const order = atTop
+          ? Math.min(0, ...siblings.map((c) => c.order)) - 1
+          : Math.max(-1, ...siblings.map((c) => c.order)) + 1;
+
+        const newCounter: Counter = {
+          id,
+          listId,
+          name: name.trim() || 'Nouveau compteur',
+          value: 0,
+          step: initialStep,
+          order,
+          createdAt: Date.now(),
+          resetAt: null,
+          lastClickAt: null,
+          goal: null,
+        };
+        set((s) => ({ counters: [...s.counters, newCounter] }));
+        return id;
+      },
+
+      renameCounter: (counterId, name) => {
+        set((s) => ({
+          counters: s.counters.map((c) => (c.id === counterId ? { ...c, name: name.trim() || c.name } : c)),
+        }));
+      },
+
+      removeCounter: (counterId) => {
+        set((s) => ({
+          counters: s.counters.filter((c) => c.id !== counterId),
+          history: s.history.filter((h) => h.counterId !== counterId),
+        }));
+      },
+
+      setCounterStep: (counterId, step) => {
+        const safeStep = Number.isFinite(step) && step > 0 ? Math.floor(step) : 1;
+        set((s) => ({
+          counters: s.counters.map((c) => (c.id === counterId ? { ...c, step: safeStep } : c)),
+        }));
+      },
+
+      incrementCounter: (counterId, source = 'button-plus') => {
+        const now = Date.now();
+        const counter = get().counters.find((c) => c.id === counterId);
+        if (!counter) return;
+        const nextValue = counter.value + counter.step;
+
+        set((s) => ({
+          counters: s.counters.map((c) =>
+            c.id === counterId ? { ...c, value: nextValue, lastClickAt: now } : c
+          ),
+          history: [
+            ...s.history,
+            { id: generateId(), counterId, delta: counter.step, value: nextValue, timestamp: now, source },
+          ],
+        }));
+      },
+
+      decrementCounter: (counterId, source = 'button-minus') => {
+        const now = Date.now();
+        const counter = get().counters.find((c) => c.id === counterId);
+        if (!counter) return;
+        const nextValue = counter.value - counter.step;
+
+        set((s) => ({
+          counters: s.counters.map((c) =>
+            c.id === counterId ? { ...c, value: nextValue, lastClickAt: now } : c
+          ),
+          history: [
+            ...s.history,
+            { id: generateId(), counterId, delta: -counter.step, value: nextValue, timestamp: now, source },
+          ],
+        }));
+      },
+
+      resetCounter: (counterId) => {
+        const now = Date.now();
+        set((s) => ({
+          counters: s.counters.map((c) =>
+            c.id === counterId ? { ...c, value: 0, resetAt: now } : c
+          ),
+        }));
+      },
+
+      updateSettings: (patch) => {
+        set((s) => ({ settings: { ...s.settings, ...patch } }));
+      },
+
+      getListsSorted: () => [...get().lists].sort((a, b) => a.order - b.order),
+
+      getCountersForList: (listId) =>
+        get()
+          .counters.filter((c) => c.listId === listId)
+          .sort((a, b) => a.order - b.order),
+
+      getHistoryForCounter: (counterId) =>
+        get()
+          .history.filter((h) => h.counterId === counterId)
+          .sort((a, b) => b.timestamp - a.timestamp),
+
+      getListTotals: (listId) => {
+        const counters = get().counters.filter((c) => c.listId === listId);
+        const sum = counters.reduce((acc, c) => acc + c.value, 0);
+        const average = counters.length > 0 ? sum / counters.length : 0;
+        return { sum, average, count: counters.length };
+      },
+    }),
+    {
+      name: 'compteur-app-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({ lists: s.lists, counters: s.counters, history: s.history, settings: s.settings }),
+      onRehydrateStorage: () => (state) => {
+        if (state) state.hasHydrated = true;
+      },
+    }
+  )
+);

@@ -43,6 +43,12 @@ export function filterByPeriod(entries: HistoryEntry[], period: HistoryPeriod, n
   return entries.filter((e) => e.timestamp >= start);
 }
 
+/** Valeur accumulée depuis minuit (heure locale) — pour le toggle "Aujourd'hui" / "Total". */
+export function computeTodayValue(history: HistoryEntry[], now = Date.now()): number {
+  const start = periodStart('day', now);
+  return history.reduce((sum, entry) => (entry.timestamp >= start ? sum + entry.delta : sum), 0);
+}
+
 /** Message d'état vide adapté à la période sélectionnée. */
 export function emptyMessageForPeriod(period: HistoryPeriod): string {
   switch (period) {

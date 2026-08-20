@@ -1,4 +1,4 @@
-import { Link, useRouter } from 'expo-router';
+import { Link, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +50,17 @@ export default function ListsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Link href="/challenge" asChild>
+              <Pressable>
+                <Text style={{ color: colors.primary, fontSize: 15 }}>Défi</Text>
+              </Pressable>
+            </Link>
+          ),
+        }}
+      />
       <FlatList
         data={lists}
         keyExtractor={(item) => item.id}

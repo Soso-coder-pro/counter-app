@@ -23,9 +23,9 @@ app/
   counter/[counterId]/history.tsx    [v2]  Historique horodaté + filtres de période
   counter/[counterId]/calendar.tsx   [v2]  Vue calendrier mensuelle (total du jour, détail au tap)
   counter/[counterId]/stats.tsx      [v2]  Statistiques (min/max, moyennes, dates, graphique)
+  challenge.tsx                      [v3]  Page Défi : tous les compteurs ayant un objectif, barre de progression
 
   # Itérations suivantes (non codées, mais compatibles avec le modèle de données actuel) :
-  counter/[counterId]/challenge.tsx  Mode "Challenge" (objectif, progression) — champ `goal` déjà prêt
   list/[listId]/settings.tsx         Réglages spécifiques à la liste (tri, affichage)
   settings/index.tsx                 Paramètres globaux (thème, langue, vibrations, écran…)
   settings/quick-add.tsx             Barre d'ajout rapide de compteur
@@ -45,6 +45,15 @@ compteur — pas d'écran dédié nécessaire.
 - `src/utils/stats.ts` — calcul des statistiques d'un compteur (`computeCounterStats`).
 - `src/utils/chart.ts` — construit la série quotidienne affichée par `MiniBarChart`.
 
+### Composants et utilitaires ajoutés en v3 (toggle Aujourd'hui/Total + objectifs)
+
+- `src/components/ViewModeToggle.tsx` — segmented control Aujourd'hui/Total sur la page compteur (affichage seul, +/- touche toujours la vraie valeur).
+- `src/components/PieProgress.tsx` — anneau de progression `value/goal` en SVG (`react-native-svg`, module Expo Go officiel — fonctionne sans Development Build), inspiré du donut chart des captures de référence.
+- `src/components/BarProgress.tsx` — barre de progression linéaire (pure `View`), utilisée sur la page Défi.
+- `src/components/GoalModal.tsx` — définir/modifier/retirer l'objectif d'un compteur.
+- `src/utils/goal.ts` — ratio et formatage `value/goal` (`progressRatio`, `clampedProgress`, `formatGoalFraction`, `formatGoalPercent`).
+- `src/utils/period.ts` — ajout de `computeTodayValue()` (somme des variations depuis minuit).
+
 ## Modèle de données (`src/store/types.ts`)
 
 ```ts
@@ -53,6 +62,11 @@ Counter      { id, listId, name, value, step, order, createdAt, resetAt, lastCli
 HistoryEntry { id, counterId, delta, value, timestamp(ms), source }
 AppSettings  { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake }
 ```
+
+`Counter.goal` (déjà présent depuis le MVP, non exploité jusqu'ici) porte
+l'objectif optionnel : `null` = pas d'objectif, sinon un entier positif. La
+page compteur et la page Défi lisent directement `value` vs `goal` — aucun
+état dérivé à maintenir séparément.
 
 `HistoryEntry` porte un timestamp en millisecondes (précision seconde à
 l'affichage) et une valeur "après coup" (`value`), ce qui permet de dériver
@@ -67,8 +81,9 @@ Un seul store Zustand centralisé, persistant automatiquement `lists`,
 `compteur-app-storage`). Actions **[MVP]** : `addList`, `renameList`,
 `removeList`, `toggleNewCounterAtTop`, `addCounter`, `renameCounter`,
 `removeCounter`, `setCounterStep`, `incrementCounter`, `decrementCounter`,
-`resetCounter`, `updateSettings`, plus des sélecteurs dérivés (`getListsSorted`,
-`getCountersForList`, `getHistoryForCounter`, `getListTotals`).
+`resetCounter`, `updateSettings`, `setCounterGoal` (v3), plus des sélecteurs
+dérivés (`getListsSorted`, `getCountersForList`, `getHistoryForCounter`,
+`getListTotals`, `getCountersWithGoals` (v3)).
 
 Le pas d'incrément (`step`) est un champ persistant du compteur : on le
 change une fois via le sélecteur (presets +1/+2/+5/+10/+25/+50/+100 ou valeur
@@ -113,13 +128,17 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Statistiques par compteur : score, nombre de clics, min/max, moyenne par minute/heure/jour, création/reset/dernier clic, graphique d'évolution (barres quotidiennes, période sélectionnable)
 - Marge de sécurité (`useSafeAreaInsets`) en bas des écrans liste, compteur et historique/calendrier/stats, pour ne pas passer sous la barre de navigation du téléphone
 
+**v3 (cette itération)** :
+- Toggle "Aujourd'hui" / "Total" sur la page compteur : affichage seul (calculé depuis l'historique), les boutons +/- continuent d'incrémenter la vraie valeur totale dans tous les cas.
+- Système d'objectif (`goal`, optionnel, modifiable/retirable à tout moment) : anneau de progression SVG sur la page compteur, barre de progression linéaire sur la nouvelle page Défi (tous les compteurs ayant un objectif, toutes listes confondues). Un compteur sans objectif n'affiche ni l'un ni l'autre.
+
 ## Ordre de priorité pour la suite
 
-1. **Mode Challenge** — le plus rapide à greffer : le champ `goal` existe déjà sur `Counter`, il ne manque qu'un écran affichant une barre de progression `value / goal` et un moyen de définir l'objectif (réutilise le pattern de `StepPickerModal`).
-2. **Menu contextuel** (export CSV, anecdotes sur les nombres, partage, noter l'app) — regroupe plusieurs petites fonctionnalités indépendantes derrière une même UI (`ActionSheet`), mais chacune ajoute une dépendance : `expo-sharing` + `expo-file-system` pour le CSV/partage, un appel réseau (ex. Numbers API) pour les anecdotes.
-3. **Écran Paramètres** — le plus gros en surface (une quinzaine de réglages) mais le moins structurant : chaque toggle est indépendant et vient étendre `AppSettings`/`CounterList` sans dépendre des autres. Peut se construire en plusieurs passes (affichage → comportement → écran/vibrations) sans bloquer le reste.
+1. **Menu contextuel** (export CSV, anecdotes sur les nombres, partage, noter l'app) — regroupe plusieurs petites fonctionnalités indépendantes derrière une même UI (`ActionSheet`), mais chacune ajoute une dépendance : `expo-sharing` + `expo-file-system` pour le CSV/partage, un appel réseau (ex. Numbers API) pour les anecdotes.
+2. **Écran Paramètres** — le plus gros en surface (une quinzaine de réglages) mais le moins structurant : chaque toggle est indépendant et vient étendre `AppSettings`/`CounterList` sans dépendre des autres. Peut se construire en plusieurs passes (affichage → comportement → écran/vibrations) sans bloquer le reste.
 
 Cet ordre suit la même logique que pour le MVP : d'abord ce qui consomme les
-données déjà en place (historique/calendrier/stats, puis challenge), ensuite
-ce qui ajoute de nouvelles dépendances externes (menu contextuel), et enfin
-la surface de configuration la plus large mais la plus indépendante (réglages).
+données déjà en place (historique/calendrier/stats, puis toggle/objectifs),
+ensuite ce qui ajoute de nouvelles dépendances externes (menu contextuel), et
+enfin la surface de configuration la plus large mais la plus indépendante
+(réglages).

@@ -34,6 +34,7 @@ interface CounterStoreState {
   renameCounter: (counterId: ID, name: string) => void;
   removeCounter: (counterId: ID) => void;
   setCounterStep: (counterId: ID, step: number) => void;
+  setCounterGoal: (counterId: ID, goal: number | null) => void;
   incrementCounter: (counterId: ID, source?: HistorySource) => void;
   decrementCounter: (counterId: ID, source?: HistorySource) => void;
   resetCounter: (counterId: ID) => void;
@@ -46,6 +47,7 @@ interface CounterStoreState {
   getCountersForList: (listId: ID) => Counter[];
   getHistoryForCounter: (counterId: ID) => HistoryEntry[];
   getListTotals: (listId: ID) => { sum: number; average: number; count: number };
+  getCountersWithGoals: () => Counter[];
 }
 
 export const useCounterStore = create<CounterStoreState>()(
@@ -140,6 +142,13 @@ export const useCounterStore = create<CounterStoreState>()(
         }));
       },
 
+      setCounterGoal: (counterId, goal) => {
+        const safeGoal = goal !== null && Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : null;
+        set((s) => ({
+          counters: s.counters.map((c) => (c.id === counterId ? { ...c, goal: safeGoal } : c)),
+        }));
+      },
+
       incrementCounter: (counterId, source = 'button-plus') => {
         const now = Date.now();
         const counter = get().counters.find((c) => c.id === counterId);
@@ -205,6 +214,8 @@ export const useCounterStore = create<CounterStoreState>()(
         const average = counters.length > 0 ? sum / counters.length : 0;
         return { sum, average, count: counters.length };
       },
+
+      getCountersWithGoals: () => get().counters.filter((c) => c.goal !== null),
     }),
     {
       name: 'compteur-app-storage',

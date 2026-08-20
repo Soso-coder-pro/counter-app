@@ -31,7 +31,9 @@ export default function ListsScreen() {
     const { sum, average } = getListTotals(item.id);
     return (
       <Link href={`/list/${item.id}`} asChild>
-        <Pressable style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable
+          style={StyleSheet.flatten([styles.card, { backgroundColor: colors.card, borderColor: colors.border }])}
+        >
           <Text style={[styles.cardTitle, { color: colors.text }]}>{item.name}</Text>
           <Text style={[styles.cardSubtitle, { color: colors.subtext }]}>
             {counters.length} compteur{counters.length > 1 ? 's' : ''}

@@ -14,3 +14,9 @@ export function dayKey(timestamp: number): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+/** "AAAA-MM-JJ" -> "JJ/MM", pour les labels courts de graphique. */
+export function shortDayLabel(key: string): string {
+  const [, m, d] = key.split('-');
+  return `${d}/${m}`;
+}

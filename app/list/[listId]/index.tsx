@@ -1,6 +1,7 @@
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { PromptModal } from '../../../src/components/PromptModal';
@@ -12,6 +13,7 @@ export default function ListScreen() {
   const { listId } = useLocalSearchParams<{ listId: string }>();
   const colors = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const list = useCounterStore((s) => s.lists.find((l) => l.id === listId));
   // useShallow : ces deux sélecteurs recréent un tableau/objet à chaque appel
@@ -78,7 +80,7 @@ export default function ListScreen() {
         data={counters}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 16 + 72 + insets.bottom }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={[styles.emptyText, { color: colors.subtext }]}>
@@ -89,7 +91,7 @@ export default function ListScreen() {
       />
 
       <Pressable
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.primary, bottom: 32 + insets.bottom }]}
         onPress={() => setModalVisible(true)}
         accessibilityLabel="Ajouter un compteur"
       >

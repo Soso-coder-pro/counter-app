@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PromptModal } from '../../../src/components/PromptModal';
 import { StepPickerModal } from '../../../src/components/StepPickerModal';
@@ -13,6 +14,7 @@ export default function CounterScreen() {
   const { counterId } = useLocalSearchParams<{ counterId: string }>();
   const colors = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const counter = useCounterStore((s) => s.counters.find((c) => c.id === counterId));
   const settings = useCounterStore((s) => s.settings);
@@ -116,6 +118,15 @@ export default function CounterScreen() {
         <Pressable onPress={() => router.push(`/counter/${counterId}/history`)}>
           <Text style={{ color: colors.primary, fontSize: 15 }}>Historique</Text>
         </Pressable>
+        <Pressable onPress={() => router.push(`/counter/${counterId}/calendar`)}>
+          <Text style={{ color: colors.primary, fontSize: 15 }}>Calendrier</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push(`/counter/${counterId}/stats`)}>
+          <Text style={{ color: colors.primary, fontSize: 15 }}>Statistiques</Text>
+        </Pressable>
+      </View>
+
+      <View style={[styles.footerActions, { marginTop: 20, paddingBottom: 16 + insets.bottom }]}>
         <Pressable onPress={confirmReset}>
           <Text style={{ color: colors.subtext, fontSize: 15 }}>Réinitialiser</Text>
         </Pressable>

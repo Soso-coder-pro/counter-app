@@ -20,11 +20,12 @@ app/
   index.tsx                          [MVP] Accueil : liste des listes de compteurs
   list/[listId]/index.tsx            [MVP] Compteurs d'une liste, total/moyenne, + ajouter
   counter/[counterId]/index.tsx      [MVP] Détail d'un compteur : +/-, pas réglable, volume
-  counter/[counterId]/history.tsx    [MVP] Historique horodaté (simple, sans filtres)
+  counter/[counterId]/history.tsx    [v2]  Historique horodaté + filtres de période
+  counter/[counterId]/calendar.tsx   [v2]  Vue calendrier mensuelle (total du jour, détail au tap)
+  counter/[counterId]/stats.tsx      [v2]  Statistiques (min/max, moyennes, dates, graphique)
 
   # Itérations suivantes (non codées, mais compatibles avec le modèle de données actuel) :
-  counter/[counterId]/stats.tsx      Statistiques (min/max, moyenne/min-h-j, graphique, challenge)
-  counter/[counterId]/calendar.tsx   Vue calendrier mensuelle (total du jour par date)
+  counter/[counterId]/challenge.tsx  Mode "Challenge" (objectif, progression) — champ `goal` déjà prêt
   list/[listId]/settings.tsx         Réglages spécifiques à la liste (tri, affichage)
   settings/index.tsx                 Paramètres globaux (thème, langue, vibrations, écran…)
   settings/quick-add.tsx             Barre d'ajout rapide de compteur
@@ -32,7 +33,17 @@ app/
 
 Menu contextuel (export CSV, anecdotes, partage, traduire/noter) : sera un
 composant `ActionSheet`/`Menu` réutilisable branché sur les écrans liste et
-compteur, une fois le MVP validé — pas d'écran dédié nécessaire.
+compteur — pas d'écran dédié nécessaire.
+
+### Composants et utilitaires ajoutés en v2
+
+- `src/components/PeriodFilter.tsx` — sélecteur Quotidien/7j/30j/90j/Mensuel/Tout, réutilisé par l'historique et les stats.
+- `src/components/HistoryRow.tsx` — ligne d'historique, extraite pour être partagée entre l'écran Historique et le détail de jour du Calendrier.
+- `src/components/MiniBarChart.tsx` — graphique en barres minimaliste, uniquement des `<View>` dimensionnées (pas de dépendance SVG/charting native, donc rien à relier côté EAS).
+- `src/utils/period.ts` — bornes de dates par période + message d'état vide adapté.
+- `src/utils/calendar.ts` — grille du mois, regroupement de l'historique par jour.
+- `src/utils/stats.ts` — calcul des statistiques d'un compteur (`computeCounterStats`).
+- `src/utils/chart.ts` — construit la série quotidienne affichée par `MiniBarChart`.
 
 ## Modèle de données (`src/store/types.ts`)
 
@@ -90,20 +101,25 @@ npm run build:dev        # APK dev client (boutons volume)
 npm run build:preview    # APK autonome
 ```
 
-## Périmètre du MVP livré
+## Périmètre livré
 
-- Plusieurs listes de compteurs, création via "+"
-- Ajout de compteurs dans une liste via "+", option "nouveau compteur en haut"
-- Total / moyenne par liste (masquable via `hideSumAndAverage`, pas encore d'UI dédiée — champ prêt)
-- Incrémentation/décrémentation par boutons écran, pas réglable à tout moment (presets + valeur libre)
-- Boutons de volume (nécessite le Development Build EAS)
-- Historique horodaté simple (liste chronologique, sans filtres de période ni calendrier)
-- Persistance locale (AsyncStorage) — les données survivent au redémarrage de l'app
+**MVP (v1)** : plusieurs listes de compteurs, ajout via "+", total/moyenne par
+liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
+(Development Build), historique horodaté, persistance locale.
 
-### Reporté aux itérations suivantes
+**v2 (cette itération)** :
+- Historique : filtres de période (Quotidien/7j/30j/90j/Mensuel/Tout), message d'état vide adapté à la période
+- Calendrier mensuel : total du jour sur chaque date, navigation mois précédent/suivant, détail des clics au tap sur un jour
+- Statistiques par compteur : score, nombre de clics, min/max, moyenne par minute/heure/jour, création/reset/dernier clic, graphique d'évolution (barres quotidiennes, période sélectionnable)
+- Marge de sécurité (`useSafeAreaInsets`) en bas des écrans liste, compteur et historique/calendrier/stats, pour ne pas passer sous la barre de navigation du téléphone
 
-Tri/glisser-déposer des compteurs, masquer bouton "-", filtres de période
-(7/30/90j, mensuel), vue calendrier, statistiques avancées + graphique, mode
-Challenge, menu contextuel (CSV, anecdotes, partage, traduire/noter), écran
-Paramètres complet (langue, thème manuel, taille des compteurs/texte, mode
-compact, verrouillage auto, écran allumé, compte à rebours, etc.).
+## Ordre de priorité pour la suite
+
+1. **Mode Challenge** — le plus rapide à greffer : le champ `goal` existe déjà sur `Counter`, il ne manque qu'un écran affichant une barre de progression `value / goal` et un moyen de définir l'objectif (réutilise le pattern de `StepPickerModal`).
+2. **Menu contextuel** (export CSV, anecdotes sur les nombres, partage, noter l'app) — regroupe plusieurs petites fonctionnalités indépendantes derrière une même UI (`ActionSheet`), mais chacune ajoute une dépendance : `expo-sharing` + `expo-file-system` pour le CSV/partage, un appel réseau (ex. Numbers API) pour les anecdotes.
+3. **Écran Paramètres** — le plus gros en surface (une quinzaine de réglages) mais le moins structurant : chaque toggle est indépendant et vient étendre `AppSettings`/`CounterList` sans dépendre des autres. Peut se construire en plusieurs passes (affichage → comportement → écran/vibrations) sans bloquer le reste.
+
+Cet ordre suit la même logique que pour le MVP : d'abord ce qui consomme les
+données déjà en place (historique/calendrier/stats, puis challenge), ensuite
+ce qui ajoute de nouvelles dépendances externes (menu contextuel), et enfin
+la surface de configuration la plus large mais la plus indépendante (réglages).

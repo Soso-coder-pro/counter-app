@@ -31,6 +31,8 @@ export default function RootLayout() {
         <Stack.Screen name="list/[listId]/index" options={{ title: '' }} />
         <Stack.Screen name="counter/[counterId]/index" options={{ title: '' }} />
         <Stack.Screen name="counter/[counterId]/history" options={{ title: 'Historique' }} />
+        <Stack.Screen name="counter/[counterId]/calendar" options={{ title: 'Calendrier' }} />
+        <Stack.Screen name="counter/[counterId]/stats" options={{ title: 'Statistiques' }} />
       </Stack>
     </SafeAreaProvider>
   );

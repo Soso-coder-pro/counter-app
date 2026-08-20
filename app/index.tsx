@@ -1,6 +1,7 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { PromptModal } from '../src/components/PromptModal';
@@ -11,6 +12,7 @@ import { useTheme } from '../src/theme/colors';
 export default function ListsScreen() {
   const colors = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   // `getListsSorted()` renvoie un nouveau tableau à chaque appel : sans
   // useShallow, useSyncExternalStore voit une référence différente à chaque
   // rendu et boucle ("Maximum update depth exceeded").
@@ -52,7 +54,7 @@ export default function ListsScreen() {
         data={lists}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 16 + 72 + insets.bottom }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={[styles.emptyText, { color: colors.subtext }]}>
@@ -63,7 +65,7 @@ export default function ListsScreen() {
       />
 
       <Pressable
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.primary, bottom: 32 + insets.bottom }]}
         onPress={() => setModalVisible(true)}
         accessibilityLabel="Ajouter une liste"
       >

@@ -23,7 +23,9 @@ export default function ChallengeScreen() {
     if (item.goal === null) return null;
     return (
       <Link href={`/counter/${item.id}`} asChild>
-        <Pressable style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable
+          style={StyleSheet.flatten([styles.card, { backgroundColor: colors.card, borderColor: colors.border }])}
+        >
           <View style={styles.cardHeader}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>{item.name}</Text>

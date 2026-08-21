@@ -2,6 +2,13 @@ import { useEffect, useRef } from 'react';
 import type { VolumeResult } from 'react-native-volume-manager';
 
 const NEUTRAL_VOLUME = 0.5;
+// Android peut émettre l'évènement VOLUME_CHANGED_ACTION deux fois pour une
+// seule pression physique sur certains appareils/versions (comportement du
+// système, pas un abonnement dupliqué côté JS — vérifié : le receiver natif
+// a son propre garde-fou, et le projet n'utilise pas React.StrictMode). On
+// ignore tout évènement dans la même direction survenant trop vite après le
+// précédent pour ne jamais appliquer +2 sur une seule pression.
+const DEBOUNCE_MS = 300;
 
 /**
  * Capture les boutons de volume physiques comme "+" / "-" tant que le hook est
@@ -21,6 +28,7 @@ const NEUTRAL_VOLUME = 0.5;
 export function useVolumeButtons(onVolumeUp: () => void, onVolumeDown: () => void, enabled: boolean) {
   const lastVolume = useRef<number>(NEUTRAL_VOLUME);
   const isRecentering = useRef(false);
+  const lastTriggerAt = useRef(0);
   const onUpRef = useRef(onVolumeUp);
   const onDownRef = useRef(onVolumeDown);
   onUpRef.current = onVolumeUp;
@@ -45,8 +53,20 @@ export function useVolumeButtons(onVolumeUp: () => void, onVolumeDown: () => voi
           const next = result.volume;
           lastVolume.current = next;
 
-          if (next > previous) onUpRef.current();
-          else if (next < previous) onDownRef.current();
+          const now = Date.now();
+          const debounced = now - lastTriggerAt.current < DEBOUNCE_MS;
+
+          if (next > previous) {
+            if (!debounced) {
+              lastTriggerAt.current = now;
+              onUpRef.current();
+            }
+          } else if (next < previous) {
+            if (!debounced) {
+              lastTriggerAt.current = now;
+              onDownRef.current();
+            }
+          }
 
           // Recentre pour ne jamais atteindre 0% ou 100% (ce qui empêcherait
           // de détecter un nouvel appui dans le même sens).

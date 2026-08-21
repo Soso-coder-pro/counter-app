@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
+import { Heatmap } from '../../../src/components/Heatmap';
 import { MiniBarChart } from '../../../src/components/MiniBarChart';
 import { PeriodFilter } from '../../../src/components/PeriodFilter';
 import { useCounterStore } from '../../../src/store/useCounterStore';
@@ -82,6 +83,11 @@ export default function StatsScreen() {
       <PeriodFilter value={period} onChange={setPeriod} />
       <View style={styles.chartWrap}>
         <MiniBarChart data={series} />
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Assiduité</Text>
+      <View style={styles.chartWrap}>
+        <Heatmap history={history} dailyGoal={counter.dailyChallenge.enabled ? counter.dailyChallenge.dailyGoal : null} />
       </View>
     </ScrollView>
   );

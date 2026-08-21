@@ -25,6 +25,19 @@ export interface HistoryEntry {
   source: HistorySource;
 }
 
+/**
+ * Défi quotidien : objectif à atteindre chaque jour. `dailyGoal` reste
+ * mémorisé même quand `enabled` passe à false (désactiver ≠ effacer la
+ * valeur) — pas besoin de re-saisir le nombre si on réactive plus tard.
+ * Aucun horodatage/reset à stocker ici : la progression du jour se calcule
+ * à la volée depuis `HistoryEntry[]` (voir computeTodayValue), donc le
+ * "reset à minuit" est automatique, sans job ni état à maintenir.
+ */
+export interface DailyChallenge {
+  enabled: boolean;
+  dailyGoal: number | null;
+}
+
 /** Un compteur individuel. */
 export interface Counter {
   id: ID;
@@ -40,8 +53,10 @@ export interface Counter {
   resetAt: number | null;
   /** Dernier clic (tout type confondu), pour les stats "dernier clic". */
   lastClickAt: number | null;
-  /** Objectif optionnel, pour le futur mode "Challenge". */
+  /** Objectif global optionnel (mode "Challenge", vue "Total"). */
   goal: number | null;
+  /** Défi quotidien optionnel (vue "Aujourd'hui"). */
+  dailyChallenge: DailyChallenge;
 }
 
 /** Une liste (thème / challenge) regroupant plusieurs compteurs. */

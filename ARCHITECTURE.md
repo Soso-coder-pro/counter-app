@@ -54,19 +54,30 @@ compteur — pas d'écran dédié nécessaire.
 - `src/utils/goal.ts` — ratio et formatage `value/goal` (`progressRatio`, `clampedProgress`, `formatGoalFraction`, `formatGoalPercent`).
 - `src/utils/period.ts` — ajout de `computeTodayValue()` (somme des variations depuis minuit).
 
+### Composants et utilitaires ajoutés en v4 (défi quotidien + heatmap)
+
+- `src/components/DailyChallengeModal.tsx` — active/désactive le défi quotidien et règle son objectif (`dailyGoal` reste mémorisé même désactivé).
+- `src/components/Heatmap.tsx` — grille type "graphique de contributions GitHub" (colonnes = semaines, cases = jours), colorée par `value/dailyGoal` si un défi quotidien existe, sinon par intensité relative (repli qui reste utile sans défi actif).
+- `src/utils/heatmap.ts` — `computeHeatmapDays()` construit la grille à partir de `groupHistoryByDay()` (déjà utilisé par le calendrier) — aucune donnée dupliquée.
+- `ViewModeToggle` (Aujourd'hui/Total, v3) est réutilisé tel quel comme sélecteur unique pour le défi quotidien : pas de second toggle. "Aujourd'hui" affiche l'anneau contre `dailyGoal` (si le défi est actif), "Total" affiche l'anneau contre `goal` (objectif global, inchangé).
+
 ## Modèle de données (`src/store/types.ts`)
 
 ```ts
-CounterList  { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage }
-Counter      { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal }
-HistoryEntry { id, counterId, delta, value, timestamp(ms), source }
-AppSettings  { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake }
+CounterList    { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage }
+Counter        { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal, dailyChallenge }
+DailyChallenge { enabled, dailyGoal }
+HistoryEntry   { id, counterId, delta, value, timestamp(ms), source }
+AppSettings    { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake }
 ```
 
-`Counter.goal` (déjà présent depuis le MVP, non exploité jusqu'ici) porte
-l'objectif optionnel : `null` = pas d'objectif, sinon un entier positif. La
-page compteur et la page Défi lisent directement `value` vs `goal` — aucun
-état dérivé à maintenir séparément.
+`Counter.goal` porte l'objectif global optionnel : `null` = pas d'objectif,
+sinon un entier positif. `Counter.dailyChallenge` porte le défi quotidien
+(v4) : `dailyGoal` reste mémorisé même quand `enabled` passe à `false`, pour
+ne pas avoir à ressaisir la valeur en réactivant. Aucun horodatage/état de
+reset à stocker — la progression du jour se calcule à la volée depuis
+`HistoryEntry[]` (`computeTodayValue`), donc le "reset à minuit" est
+automatique et sans job à maintenir.
 
 `HistoryEntry` porte un timestamp en millisecondes (précision seconde à
 l'affichage) et une valeur "après coup" (`value`), ce qui permet de dériver
@@ -81,9 +92,15 @@ Un seul store Zustand centralisé, persistant automatiquement `lists`,
 `compteur-app-storage`). Actions **[MVP]** : `addList`, `renameList`,
 `removeList`, `toggleNewCounterAtTop`, `addCounter`, `renameCounter`,
 `removeCounter`, `setCounterStep`, `incrementCounter`, `decrementCounter`,
-`resetCounter`, `updateSettings`, `setCounterGoal` (v3), plus des sélecteurs
-dérivés (`getListsSorted`, `getCountersForList`, `getHistoryForCounter`,
-`getListTotals`, `getCountersWithGoals` (v3)).
+`resetCounter`, `updateSettings`, `setCounterGoal` (v3), `updateDailyChallenge`
+(v4), plus des sélecteurs dérivés (`getListsSorted`, `getCountersForList`,
+`getHistoryForCounter`, `getListTotals`, `getCountersWithGoals` (v3)).
+
+**Migration de schéma** : le store est versionné (`persist({ version, migrate })`).
+L'ajout de `dailyChallenge` en v4 passe par une fonction `migrate` qui complète
+les compteurs déjà persistés (usage réel en cours) plutôt que de risquer un
+crash au premier lancement après mise à jour — à reproduire pour tout futur
+champ ajouté à un objet déjà persisté.
 
 Le pas d'incrément (`step`) est un champ persistant du compteur : on le
 change une fois via le sélecteur (presets +1/+2/+5/+10/+25/+50/+100 ou valeur
@@ -128,9 +145,21 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Statistiques par compteur : score, nombre de clics, min/max, moyenne par minute/heure/jour, création/reset/dernier clic, graphique d'évolution (barres quotidiennes, période sélectionnable)
 - Marge de sécurité (`useSafeAreaInsets`) en bas des écrans liste, compteur et historique/calendrier/stats, pour ne pas passer sous la barre de navigation du téléphone
 
-**v3 (cette itération)** :
+**v3** :
 - Toggle "Aujourd'hui" / "Total" sur la page compteur : affichage seul (calculé depuis l'historique), les boutons +/- continuent d'incrémenter la vraie valeur totale dans tous les cas.
 - Système d'objectif (`goal`, optionnel, modifiable/retirable à tout moment) : anneau de progression SVG sur la page compteur, barre de progression linéaire sur la nouvelle page Défi (tous les compteurs ayant un objectif, toutes listes confondues). Un compteur sans objectif n'affiche ni l'un ni l'autre.
+
+**v4 (cette itération)** :
+- Défi quotidien par compteur (`dailyChallenge`, activable, objectif modifiable/désactivable sans perte de valeur) : la vue "Aujourd'hui" du toggle existant (v3) affiche l'anneau de progression contre l'objectif du jour au lieu de la valeur brute. Aucun mécanisme de reset : la progression se recalcule depuis l'historique à chaque rendu.
+- Heatmap type GitHub sur la page Statistiques ("Assiduité") : coloration par `value/dailyGoal` si un défi quotidien existe, repli en intensité d'activité relative sinon.
+
+### Non traité dans cette itération (à trancher plus tard)
+
+La page Défi (`challenge.tsx`, v3) ne liste que les compteurs à objectif
+**global** (`goal`) — les compteurs en défi quotidien seul n'y apparaissent
+pas encore. Ajouter la progression du jour à cette page (probablement avec
+un badge distinguant "objectif global" / "défi du jour") est un candidat
+naturel pour l'itération suivante, mais n'était pas demandé ici.
 
 ## Ordre de priorité pour la suite
 
@@ -138,7 +167,7 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 2. **Écran Paramètres** — le plus gros en surface (une quinzaine de réglages) mais le moins structurant : chaque toggle est indépendant et vient étendre `AppSettings`/`CounterList` sans dépendre des autres. Peut se construire en plusieurs passes (affichage → comportement → écran/vibrations) sans bloquer le reste.
 
 Cet ordre suit la même logique que pour le MVP : d'abord ce qui consomme les
-données déjà en place (historique/calendrier/stats, puis toggle/objectifs),
-ensuite ce qui ajoute de nouvelles dépendances externes (menu contextuel), et
-enfin la surface de configuration la plus large mais la plus indépendante
-(réglages).
+données déjà en place (historique/calendrier/stats, puis toggle/objectifs/défi
+quotidien), ensuite ce qui ajoute de nouvelles dépendances externes (menu
+contextuel), et enfin la surface de configuration la plus large mais la plus
+indépendante (réglages).

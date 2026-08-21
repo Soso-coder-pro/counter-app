@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
+import { DailyChallengeModal } from '../../../src/components/DailyChallengeModal';
 import { GoalModal } from '../../../src/components/GoalModal';
 import { PieProgress } from '../../../src/components/PieProgress';
 import { PromptModal } from '../../../src/components/PromptModal';
@@ -28,6 +29,7 @@ export default function CounterScreen() {
   const decrementCounter = useCounterStore((s) => s.decrementCounter);
   const setCounterStep = useCounterStore((s) => s.setCounterStep);
   const setCounterGoal = useCounterStore((s) => s.setCounterGoal);
+  const updateDailyChallenge = useCounterStore((s) => s.updateDailyChallenge);
   const resetCounter = useCounterStore((s) => s.resetCounter);
   const renameCounter = useCounterStore((s) => s.renameCounter);
   const removeCounter = useCounterStore((s) => s.removeCounter);
@@ -35,7 +37,12 @@ export default function CounterScreen() {
   const [stepModalVisible, setStepModalVisible] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<CounterViewMode>('total');
+  const [dailyChallengeModalVisible, setDailyChallengeModalVisible] = useState(false);
+  // Le défi quotidien, quand actif, ouvre l'écran directement sur la
+  // progression du jour plutôt que sur le total.
+  const [viewMode, setViewMode] = useState<CounterViewMode>(() =>
+    counter?.dailyChallenge.enabled ? 'today' : 'total'
+  );
 
   const todayValue = useMemo(() => computeTodayValue(history), [history]);
 
@@ -119,7 +126,22 @@ export default function CounterScreen() {
       </View>
 
       <View style={styles.goalBlock}>
-        {counter.goal !== null ? (
+        {viewMode === 'today' ? (
+          counter.dailyChallenge.enabled && counter.dailyChallenge.dailyGoal !== null ? (
+            <Pressable onPress={() => setDailyChallengeModalVisible(true)} style={styles.goalRing}>
+              <PieProgress value={todayValue} goal={counter.dailyChallenge.dailyGoal} />
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', marginTop: 8 }}>
+                Défi du jour : {counter.dailyChallenge.dailyGoal} ✎
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => setDailyChallengeModalVisible(true)}>
+              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                + Activer le défi quotidien
+              </Text>
+            </Pressable>
+          )
+        ) : counter.goal !== null ? (
           <Pressable onPress={() => setGoalModalVisible(true)} style={styles.goalRing}>
             <PieProgress value={counter.value} goal={counter.goal} />
             <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', marginTop: 8 }}>
@@ -202,6 +224,16 @@ export default function CounterScreen() {
         onSubmit={(goal) => {
           setCounterGoal(counterId, goal);
           setGoalModalVisible(false);
+        }}
+      />
+
+      <DailyChallengeModal
+        visible={dailyChallengeModalVisible}
+        current={counter.dailyChallenge}
+        onCancel={() => setDailyChallengeModalVisible(false)}
+        onSubmit={(patch) => {
+          updateDailyChallenge(counterId, patch);
+          setDailyChallengeModalVisible(false);
         }}
       />
     </ScrollView>

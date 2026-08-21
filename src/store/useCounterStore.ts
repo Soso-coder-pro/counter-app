@@ -3,7 +3,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { generateId } from '../utils/id';
-import type { AppSettings, Counter, CounterList, HistoryEntry, HistorySource, ID } from './types';
+import type { AppSettings, Counter, CounterList, DailyChallenge, HistoryEntry, HistorySource, ID } from './types';
+
+const STORE_VERSION = 1;
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -35,6 +37,7 @@ interface CounterStoreState {
   removeCounter: (counterId: ID) => void;
   setCounterStep: (counterId: ID, step: number) => void;
   setCounterGoal: (counterId: ID, goal: number | null) => void;
+  updateDailyChallenge: (counterId: ID, patch: Partial<DailyChallenge>) => void;
   incrementCounter: (counterId: ID, source?: HistorySource) => void;
   decrementCounter: (counterId: ID, source?: HistorySource) => void;
   resetCounter: (counterId: ID) => void;
@@ -117,6 +120,7 @@ export const useCounterStore = create<CounterStoreState>()(
           resetAt: null,
           lastClickAt: null,
           goal: null,
+          dailyChallenge: { enabled: false, dailyGoal: null },
         };
         set((s) => ({ counters: [...s.counters, newCounter] }));
         return id;
@@ -146,6 +150,19 @@ export const useCounterStore = create<CounterStoreState>()(
         const safeGoal = goal !== null && Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : null;
         set((s) => ({
           counters: s.counters.map((c) => (c.id === counterId ? { ...c, goal: safeGoal } : c)),
+        }));
+      },
+
+      updateDailyChallenge: (counterId, patch) => {
+        const safePatch: Partial<DailyChallenge> = { ...patch };
+        if ('dailyGoal' in safePatch) {
+          const g = safePatch.dailyGoal;
+          safePatch.dailyGoal = g !== null && g !== undefined && Number.isFinite(g) && g > 0 ? Math.floor(g) : null;
+        }
+        set((s) => ({
+          counters: s.counters.map((c) =>
+            c.id === counterId ? { ...c, dailyChallenge: { ...c.dailyChallenge, ...safePatch } } : c
+          ),
         }));
       },
 
@@ -221,6 +238,21 @@ export const useCounterStore = create<CounterStoreState>()(
       name: 'compteur-app-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ lists: s.lists, counters: s.counters, history: s.history, settings: s.settings }),
+      version: STORE_VERSION,
+      // Des comptes existants sont déjà persistés (usage réel) : on complète les
+      // compteurs sauvegardés avant ce champ plutôt que de risquer un crash au
+      // premier lancement après mise à jour (`counter.dailyChallenge.enabled`
+      // sur un objet sans ce champ).
+      migrate: (persistedState) => {
+        const state = persistedState as { counters?: Array<Partial<Counter>> } | undefined;
+        if (state?.counters) {
+          state.counters = state.counters.map((c) => ({
+            ...c,
+            dailyChallenge: c.dailyChallenge ?? { enabled: false, dailyGoal: null },
+          }));
+        }
+        return state;
+      },
       onRehydrateStorage: () => (state) => {
         if (state) state.hasHydrated = true;
       },

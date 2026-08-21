@@ -12,11 +12,26 @@ npm start
 ```
 
 `expo start` affiche un QR code dans le terminal. Comme le Codespace tourne
-dans le cloud, utilise l'option **tunnel** si le LAN direct ne fonctionne pas :
+dans le cloud (pas sur le même réseau que ton téléphone), le LAN direct ne
+fonctionnera pas : deux options.
 
+**Option recommandée — port forwarding natif du Codespace** (plus fiable que
+le tunnel, pas de dépendance à ngrok) :
+1. Lance `npm start` normalement.
+2. Dans l'onglet **Ports** de VS Code, repère le port `8081`, clic droit →
+   **Port Visibility** → **Public** (obligatoire : Expo Go ne peut pas passer
+   l'authentification d'un port privé).
+3. Copie l'URL forwardée (`https://<nom-du-codespace>-8081.app.github.dev`).
+4. Dans Expo Go, **"Enter URL manually"** → colle la même URL en remplaçant
+   `https://` par `exp://`.
+
+**Option tunnel (fallback)** — utilise ngrok en interne, peut échouer
+("failed to start tunnel", outage ngrok, etc.) :
 ```bash
 npm start -- --tunnel
 ```
+Si ça échoue, vérifie https://status.ngrok.com/, réessaie, ou reviens à
+l'option port forwarding ci-dessus.
 
 - **Expo Go (Android/iPad)** : scanne le QR code avec l'app Expo Go. Toutes
   les fonctionnalités marchent **sauf les boutons de volume physiques**

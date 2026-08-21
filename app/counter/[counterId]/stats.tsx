@@ -7,22 +7,13 @@ import { useShallow } from 'zustand/react/shallow';
 import { Heatmap } from '../../../src/components/Heatmap';
 import { MiniBarChart } from '../../../src/components/MiniBarChart';
 import { PeriodFilter } from '../../../src/components/PeriodFilter';
+import { StatTile } from '../../../src/components/StatTile';
 import { useCounterStore } from '../../../src/store/useCounterStore';
 import { useTheme } from '../../../src/theme/colors';
 import { buildDailySeries } from '../../../src/utils/chart';
 import { formatDateTime } from '../../../src/utils/date';
 import type { HistoryPeriod } from '../../../src/utils/period';
 import { computeCounterStats, formatRate } from '../../../src/utils/stats';
-
-function StatTile({ label, value }: { label: string; value: string }) {
-  const colors = useTheme();
-  return (
-    <View style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Text style={[styles.tileValue, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.tileLabel, { color: colors.subtext }]}>{label}</Text>
-    </View>
-  );
-}
 
 export default function StatsScreen() {
   const { counterId } = useLocalSearchParams<{ counterId: string }>();
@@ -96,15 +87,6 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 10 },
-  tile: {
-    width: '31%',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  tileValue: { fontSize: 20, fontWeight: '700' },
-  tileLabel: { fontSize: 11, marginTop: 4, textAlign: 'center' },
   datesBlock: { paddingHorizontal: 16, marginTop: 8, gap: 8 },
   dateRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dateLabel: { fontSize: 13 },

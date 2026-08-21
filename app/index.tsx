@@ -53,11 +53,18 @@ export default function ListsScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Link href="/challenge" asChild>
-              <Pressable>
-                <Text style={{ color: colors.primary, fontSize: 15 }}>Défi</Text>
-              </Pressable>
-            </Link>
+            <View style={styles.headerLinks}>
+              <Link href="/challenge" asChild>
+                <Pressable>
+                  <Text style={{ color: colors.primary, fontSize: 15 }}>Objectifs</Text>
+                </Pressable>
+              </Link>
+              <Link href="/archive" asChild>
+                <Pressable>
+                  <Text style={{ color: colors.primary, fontSize: 15 }}>Archive</Text>
+                </Pressable>
+              </Link>
+            </View>
           ),
         }}
       />
@@ -97,6 +104,7 @@ export default function ListsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerLinks: { flexDirection: 'row', gap: 16 },
   listContent: { padding: 16, gap: 12, flexGrow: 1 },
   card: {
     borderWidth: 1,

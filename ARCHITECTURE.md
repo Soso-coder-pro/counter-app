@@ -23,13 +23,21 @@ app/
   counter/[counterId]/history.tsx    [v2]  Historique horodaté + filtres de période
   counter/[counterId]/calendar.tsx   [v2]  Vue calendrier mensuelle (total du jour, détail au tap)
   counter/[counterId]/stats.tsx      [v2]  Statistiques (min/max, moyennes, dates, graphique)
-  challenge.tsx                      [v3]  Page Défi : tous les compteurs ayant un objectif, barre de progression
+  challenge.tsx                      [v3]  Page "Objectifs" : tous les compteurs à objectif global, barre de progression
+  list/[listId]/stats.tsx            [v5]  Statistiques agrégées d'un défi (liste) : somme, moyenne, min/max, par compteur
+  archive.tsx                        [v5]  Défis et compteurs archivés : restaurer ou supprimer définitivement
 
   # Itérations suivantes (non codées, mais compatibles avec le modèle de données actuel) :
   list/[listId]/settings.tsx         Réglages spécifiques à la liste (tri, affichage)
   settings/index.tsx                 Paramètres globaux (thème, langue, vibrations, écran…)
   settings/quick-add.tsx             Barre d'ajout rapide de compteur
 ```
+
+> **Vocabulaire** : "défi" désigne une **liste** (`CounterList`) de compteurs.
+> La page `challenge.tsx` (v3) a été renommée "Objectifs" dans l'UI pour ne
+> pas entrer en collision avec ce terme — elle liste les compteurs ayant un
+> objectif *global* (`goal`), toutes listes confondues, ce qui est un concept
+> différent d'un défi/liste.
 
 Menu contextuel (export CSV, anecdotes, partage, traduire/noter) : sera un
 composant `ActionSheet`/`Menu` réutilisable branché sur les écrans liste et
@@ -61,11 +69,17 @@ compteur — pas d'écran dédié nécessaire.
 - `src/utils/heatmap.ts` — `computeHeatmapDays()` construit la grille à partir de `groupHistoryByDay()` (déjà utilisé par le calendrier) — aucune donnée dupliquée.
 - `ViewModeToggle` (Aujourd'hui/Total, v3) est réutilisé tel quel comme sélecteur unique pour le défi quotidien : pas de second toggle. "Aujourd'hui" affiche l'anneau contre `dailyGoal` (si le défi est actif), "Total" affiche l'anneau contre `goal` (objectif global, inchangé).
 
+### Composants et utilitaires ajoutés en v5 (archive + stats de défi)
+
+- `src/components/StatTile.tsx` — tuile statistique extraite de la page Stats compteur pour être partagée avec la nouvelle page Stats défi.
+- `src/utils/listStats.ts` — `computeListStats()` : nombre de compteurs actifs, somme, moyenne, min/max sur l'ensemble des compteurs d'une liste.
+- `Counter.archivedAt` / `CounterList.archivedAt` — archivage logique (`null` = actif). Archiver une liste cascade sur ses compteurs actifs ; les restaurer se fait indépendamment. Tous les sélecteurs "actifs" (`getListsSorted`, `getCountersForList`, `getListTotals`, `getCountersWithGoals`) excluent désormais l'archivé ; `getArchivedLists`/`getArchivedCounters` exposent l'inverse.
+
 ## Modèle de données (`src/store/types.ts`)
 
 ```ts
-CounterList    { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage }
-Counter        { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal, dailyChallenge }
+CounterList    { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage, archivedAt }
+Counter        { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal, dailyChallenge, archivedAt }
 DailyChallenge { enabled, dailyGoal }
 HistoryEntry   { id, counterId, delta, value, timestamp(ms), source }
 AppSettings    { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake }
@@ -93,14 +107,22 @@ Un seul store Zustand centralisé, persistant automatiquement `lists`,
 `removeList`, `toggleNewCounterAtTop`, `addCounter`, `renameCounter`,
 `removeCounter`, `setCounterStep`, `incrementCounter`, `decrementCounter`,
 `resetCounter`, `updateSettings`, `setCounterGoal` (v3), `updateDailyChallenge`
-(v4), plus des sélecteurs dérivés (`getListsSorted`, `getCountersForList`,
-`getHistoryForCounter`, `getListTotals`, `getCountersWithGoals` (v3)).
+(v4), `archiveList`/`restoreList`/`archiveCounter`/`restoreCounter` (v5),
+plus des sélecteurs dérivés (`getListsSorted`, `getCountersForList`,
+`getHistoryForCounter`, `getListTotals`, `getCountersWithGoals` (v3),
+`getArchivedLists`/`getArchivedCounters` (v5)).
+
+Depuis v5, `removeList`/`removeCounter` sont des primitives de **suppression
+définitive** — elles ne sont plus appelées directement depuis les écrans
+liste/compteur (qui archivent désormais via `archiveList`/`archiveCounter`),
+seulement depuis l'écran Archive.
 
 **Migration de schéma** : le store est versionné (`persist({ version, migrate })`).
-L'ajout de `dailyChallenge` en v4 passe par une fonction `migrate` qui complète
-les compteurs déjà persistés (usage réel en cours) plutôt que de risquer un
-crash au premier lancement après mise à jour — à reproduire pour tout futur
-champ ajouté à un objet déjà persisté.
+Chaque champ ajouté à un objet déjà persisté (ex. `dailyChallenge` en v4,
+`archivedAt` en v5) passe par une fonction `migrate` qui complète les
+listes/compteurs déjà sauvegardés (usage réel en cours) plutôt que de risquer
+un crash au premier lancement après mise à jour — à reproduire pour tout futur
+champ du même genre.
 
 Le pas d'incrément (`step`) est un champ persistant du compteur : on le
 change une fois via le sélecteur (presets +1/+2/+5/+10/+25/+50/+100 ou valeur
@@ -120,6 +142,13 @@ ensuite le flux `expo start` / hot reload reste identique.
 si l'appui suivant le fait monter/descendre ; il échoue silencieusement (try/
 catch) si le module natif est absent, donc l'app reste 100 % utilisable dans
 Expo Go avec seulement les boutons à l'écran.
+
+**Anti-rebond (v5)** : Android peut émettre le broadcast système
+`VOLUME_CHANGED_ACTION` deux fois pour une seule pression physique sur
+certains appareils — comportement natif hors de notre contrôle (vérifié :
+pas d'abonnement JS dupliqué, le receiver natif a son propre garde-fou). Un
+évènement dans la même direction survenant moins de 300ms après le précédent
+est ignoré, pour garantir un seul incrément par pression.
 
 ## EAS Build (`eas.json`)
 
@@ -149,17 +178,23 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Toggle "Aujourd'hui" / "Total" sur la page compteur : affichage seul (calculé depuis l'historique), les boutons +/- continuent d'incrémenter la vraie valeur totale dans tous les cas.
 - Système d'objectif (`goal`, optionnel, modifiable/retirable à tout moment) : anneau de progression SVG sur la page compteur, barre de progression linéaire sur la nouvelle page Défi (tous les compteurs ayant un objectif, toutes listes confondues). Un compteur sans objectif n'affiche ni l'un ni l'autre.
 
-**v4 (cette itération)** :
+**v4** :
 - Défi quotidien par compteur (`dailyChallenge`, activable, objectif modifiable/désactivable sans perte de valeur) : la vue "Aujourd'hui" du toggle existant (v3) affiche l'anneau de progression contre l'objectif du jour au lieu de la valeur brute. Aucun mécanisme de reset : la progression se recalcule depuis l'historique à chaque rendu.
 - Heatmap type GitHub sur la page Statistiques ("Assiduité") : coloration par `value/dailyGoal` si un défi quotidien existe, repli en intensité d'activité relative sinon.
 
+**v5 (cette itération)** :
+- **Fix prioritaire** : le bouton volume incrémentait de +2 au lieu de +1 (anti-rebond 300ms, cause = comportement natif Android, pas un abonnement dupliqué).
+- Archive pour défis (listes) et compteurs : suppression = archivage (réversible) plutôt qu'effacement immédiat. Écran dédié pour restaurer ou supprimer définitivement. Archiver un défi cascade sur ses compteurs actifs.
+- Statistiques par défi (`list/[listId]/stats.tsx`) : nombre de compteurs actifs, somme, moyenne, min/max, détail par compteur.
+- Page "Objectifs" (ex-"Défi", renommée pour éviter la collision de vocabulaire avec "défi = liste").
+
 ### Non traité dans cette itération (à trancher plus tard)
 
-La page Défi (`challenge.tsx`, v3) ne liste que les compteurs à objectif
+La page Objectifs (`challenge.tsx`) ne liste que les compteurs à objectif
 **global** (`goal`) — les compteurs en défi quotidien seul n'y apparaissent
 pas encore. Ajouter la progression du jour à cette page (probablement avec
-un badge distinguant "objectif global" / "défi du jour") est un candidat
-naturel pour l'itération suivante, mais n'était pas demandé ici.
+un badge distinguant "objectif global" / "défi du jour") reste un candidat
+pour une itération suivante.
 
 ## Ordre de priorité pour la suite
 

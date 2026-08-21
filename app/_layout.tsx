@@ -28,8 +28,10 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Compteur' }} />
-        <Stack.Screen name="challenge" options={{ title: 'Défi' }} />
+        <Stack.Screen name="challenge" options={{ title: 'Objectifs' }} />
+        <Stack.Screen name="archive" options={{ title: 'Archive' }} />
         <Stack.Screen name="list/[listId]/index" options={{ title: '' }} />
+        <Stack.Screen name="list/[listId]/stats" options={{ title: 'Statistiques' }} />
         <Stack.Screen name="counter/[counterId]/index" options={{ title: '' }} />
         <Stack.Screen name="counter/[counterId]/history" options={{ title: 'Historique' }} />
         <Stack.Screen name="counter/[counterId]/calendar" options={{ title: 'Calendrier' }} />

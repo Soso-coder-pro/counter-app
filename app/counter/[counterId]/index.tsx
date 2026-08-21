@@ -32,7 +32,7 @@ export default function CounterScreen() {
   const updateDailyChallenge = useCounterStore((s) => s.updateDailyChallenge);
   const resetCounter = useCounterStore((s) => s.resetCounter);
   const renameCounter = useCounterStore((s) => s.renameCounter);
-  const removeCounter = useCounterStore((s) => s.removeCounter);
+  const archiveCounter = useCounterStore((s) => s.archiveCounter);
 
   const [stepModalVisible, setStepModalVisible] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -74,14 +74,14 @@ export default function CounterScreen() {
     ]);
   }
 
-  function confirmDelete() {
-    Alert.alert('Supprimer', `Supprimer définitivement "${counter!.name}" et son historique ?`, [
+  function confirmArchive() {
+    Alert.alert('Archiver', `Archiver "${counter!.name}" ? Tu pourras le restaurer depuis l'Archive.`, [
       { text: 'Annuler', style: 'cancel' },
       {
-        text: 'Supprimer',
+        text: 'Archiver',
         style: 'destructive',
         onPress: () => {
-          removeCounter(counterId!);
+          archiveCounter(counterId!);
           router.back();
         },
       },
@@ -190,8 +190,8 @@ export default function CounterScreen() {
         <Pressable onPress={confirmReset}>
           <Text style={{ color: colors.subtext, fontSize: 15 }}>Réinitialiser</Text>
         </Pressable>
-        <Pressable onPress={confirmDelete}>
-          <Text style={{ color: colors.danger, fontSize: 15 }}>Supprimer</Text>
+        <Pressable onPress={confirmArchive}>
+          <Text style={{ color: colors.danger, fontSize: 15 }}>Archiver</Text>
         </Pressable>
       </View>
 

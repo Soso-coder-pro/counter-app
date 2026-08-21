@@ -1,6 +1,6 @@
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -25,6 +25,7 @@ export default function ListScreen() {
   );
   const addCounter = useCounterStore((s) => s.addCounter);
   const toggleNewCounterAtTop = useCounterStore((s) => s.toggleNewCounterAtTop);
+  const archiveList = useCounterStore((s) => s.archiveList);
   const [modalVisible, setModalVisible] = useState(false);
 
   if (!list || !listId) {
@@ -39,6 +40,24 @@ export default function ListScreen() {
     const id = addCounter(listId, name);
     setModalVisible(false);
     router.push(`/counter/${id}`);
+  }
+
+  function confirmArchiveList() {
+    Alert.alert(
+      'Archiver ce défi',
+      `Archiver "${list!.name}" et ses compteurs ? Tu pourras les restaurer depuis l'Archive.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Archiver',
+          style: 'destructive',
+          onPress: () => {
+            archiveList(listId);
+            router.back();
+          },
+        },
+      ]
+    );
   }
 
   function renderItem({ item }: { item: Counter }) {
@@ -59,7 +78,16 @@ export default function ListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ title: list.name }} />
+      <Stack.Screen
+        options={{
+          title: list.name,
+          headerRight: () => (
+            <Pressable onPress={confirmArchiveList}>
+              <Text style={{ color: colors.danger, fontSize: 15 }}>Archiver</Text>
+            </Pressable>
+          ),
+        }}
+      />
 
       {!list.hideSumAndAverage && counters.length > 0 && (
         <View style={[styles.summary, { borderColor: colors.border }]}>
@@ -69,6 +97,12 @@ export default function ListScreen() {
           </Text>
         </View>
       )}
+
+      <Link href={`/list/${listId}/stats`} asChild>
+        <Pressable style={styles.statsLink}>
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Statistiques du défi</Text>
+        </Pressable>
+      </Link>
 
       <Pressable onPress={() => toggleNewCounterAtTop(listId)} style={styles.toggleRow}>
         <Text style={{ color: colors.subtext, fontSize: 13 }}>
@@ -121,6 +155,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   toggleRow: { paddingHorizontal: 16, paddingTop: 10 },
+  statsLink: { paddingHorizontal: 16, paddingTop: 10 },
   listContent: { padding: 16, gap: 12, flexGrow: 1 },
   card: {
     borderWidth: 1,

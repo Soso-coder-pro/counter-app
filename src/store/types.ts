@@ -57,6 +57,9 @@ export interface Counter {
   goal: number | null;
   /** Défi quotidien optionnel (vue "Aujourd'hui"). */
   dailyChallenge: DailyChallenge;
+  /** Date d'archivage, ou null si actif. Un compteur archivé n'apparaît plus
+   * dans sa liste tant qu'il n'est pas restauré depuis l'Archive. */
+  archivedAt: number | null;
 }
 
 /** Une liste (thème / challenge) regroupant plusieurs compteurs. */
@@ -69,6 +72,10 @@ export interface CounterList {
   newCounterAtTop: boolean;
   /** Masque le total/moyenne affichés en en-tête de liste (option future, câblée dès maintenant). */
   hideSumAndAverage: boolean;
+  /** Date d'archivage, ou null si active. Archiver une liste archive aussi
+   * ses compteurs actifs (cascade) ; les restaurer se fait indépendamment
+   * depuis l'Archive. */
+  archivedAt: number | null;
 }
 
 /** Réglages globaux de l'application (paramètres). */

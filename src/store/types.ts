@@ -78,6 +78,15 @@ export interface CounterList {
   archivedAt: number | null;
 }
 
+/**
+ * Rappels locaux (expo-notifications) pour les défis quotidiens non atteints.
+ * `times` au format "HH:MM" (24h, heure locale de l'appareil).
+ */
+export interface NotificationSettings {
+  enabled: boolean;
+  times: string[];
+}
+
 /** Réglages globaux de l'application (paramètres). */
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
@@ -86,7 +95,9 @@ export interface AppSettings {
   showMinusButton: boolean;
   /** Capture des boutons de volume physiques comme +/- (nécessite un dev client). */
   volumeButtonsEnabled: boolean;
+  /** Empêche l'écran de se mettre en veille tant que l'app est au premier plan. */
   keepScreenAwake: boolean;
+  notifications: NotificationSettings;
 }
 
 export interface CounterStoreData {

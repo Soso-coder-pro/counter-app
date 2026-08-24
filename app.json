@@ -35,6 +35,12 @@
           "image": "./assets/icon.png",
           "imageWidth": 160
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2563EB"
+        }
       ]
     ],
     "extra": {

@@ -64,6 +64,11 @@ export default function ListsScreen() {
                   <Text style={{ color: colors.primary, fontSize: 15 }}>Archive</Text>
                 </Pressable>
               </Link>
+              <Link href="/settings" asChild>
+                <Pressable accessibilityLabel="Paramètres">
+                  <Text style={{ color: colors.primary, fontSize: 17 }}>⚙</Text>
+                </Pressable>
+              </Link>
             </View>
           ),
         }}

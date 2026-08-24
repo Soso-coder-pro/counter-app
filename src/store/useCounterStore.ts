@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { generateId } from '../utils/id';
 import type { AppSettings, Counter, CounterList, DailyChallenge, HistoryEntry, HistorySource, ID } from './types';
 
-const STORE_VERSION = 2;
+const STORE_VERSION = 3;
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   showMinusButton: true,
   volumeButtonsEnabled: true,
   keepScreenAwake: false,
+  notifications: { enabled: false, times: ['20:00'] },
 };
 
 /** Pas d'incrément proposés par défaut dans le sélecteur rapide. */
@@ -296,7 +297,11 @@ export const useCounterStore = create<CounterStoreState>()(
       // crash au premier lancement après mise à jour.
       migrate: (persistedState) => {
         const state = persistedState as
-          | { lists?: Array<Partial<CounterList>>; counters?: Array<Partial<Counter>> }
+          | {
+              lists?: Array<Partial<CounterList>>;
+              counters?: Array<Partial<Counter>>;
+              settings?: Partial<AppSettings>;
+            }
           | undefined;
         if (state?.counters) {
           state.counters = state.counters.map((c) => ({
@@ -310,6 +315,12 @@ export const useCounterStore = create<CounterStoreState>()(
             ...l,
             archivedAt: l.archivedAt ?? null,
           }));
+        }
+        if (state?.settings) {
+          state.settings = {
+            ...state.settings,
+            notifications: state.settings.notifications ?? { enabled: false, times: ['20:00'] },
+          };
         }
         return state;
       },

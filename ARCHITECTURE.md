@@ -26,11 +26,11 @@ app/
   challenge.tsx                      [v3]  Page "Objectifs" : tous les compteurs à objectif global, barre de progression
   list/[listId]/stats.tsx            [v5]  Statistiques agrégées d'un défi (liste) : somme, moyenne, min/max, par compteur
   archive.tsx                        [v5]  Défis et compteurs archivés : restaurer ou supprimer définitivement
+  settings.tsx                       [v6]  Paramètres : vibration, bouton volume, écran allumé, notifications de rappel
 
   # Itérations suivantes (non codées, mais compatibles avec le modèle de données actuel) :
   list/[listId]/settings.tsx         Réglages spécifiques à la liste (tri, affichage)
-  settings/index.tsx                 Paramètres globaux (thème, langue, vibrations, écran…)
-  settings/quick-add.tsx             Barre d'ajout rapide de compteur
+  settings.tsx (langue, thème manuel, taille des compteurs/texte, mode compact, verrouillage auto…) — reste de la liste de réglages demandée à terme
 ```
 
 > **Vocabulaire** : "défi" désigne une **liste** (`CounterList`) de compteurs.
@@ -75,14 +75,32 @@ compteur — pas d'écran dédié nécessaire.
 - `src/utils/listStats.ts` — `computeListStats()` : nombre de compteurs actifs, somme, moyenne, min/max sur l'ensemble des compteurs d'une liste.
 - `Counter.archivedAt` / `CounterList.archivedAt` — archivage logique (`null` = actif). Archiver une liste cascade sur ses compteurs actifs ; les restaurer se fait indépendamment. Tous les sélecteurs "actifs" (`getListsSorted`, `getCountersForList`, `getListTotals`, `getCountersWithGoals`) excluent désormais l'archivé ; `getArchivedLists`/`getArchivedCounters` exposent l'inverse.
 
+### Composants et utilitaires ajoutés en v6 (Paramètres)
+
+- `src/components/SettingsRow.tsx` — ligne "libellé + switch" réutilisée pour tous les réglages booléens.
+- `src/components/ReminderTimeModal.tsx` — ajoute une heure de rappel ("HH:MM", champ texte validé — pas de nouvelle dépendance native de type date-picker).
+- `src/utils/notifications.ts` — `requestNotificationPermission()`, `rescheduleReminders()`, `configureNotificationHandler()` (`expo-notifications`, import différé comme `useVolumeButtons`).
+- `expo-keep-awake` activé/désactivé depuis `_layout.tsx` selon `settings.keepScreenAwake` (`activateKeepAwakeAsync`/`deactivateKeepAwake`), donc actif sur toute l'app, pas un seul écran.
+- Vibration au clic et bouton volume (`hapticsOnTap`, `volumeButtonsEnabled`) existaient déjà dans le store depuis le MVP et étaient déjà branchés au comportement réel — seul l'écran pour les régler manquait.
+
+**Limite assumée des notifications** : ce sont des rappels **locaux programmés**
+(pas de push/serveur, fonctionnent dans Expo Go sur Android sans Development
+Build). Le contenu est un texte générique, pas un décompte dynamique des
+défis non atteints — une notification programmée à l'avance ne peut pas
+exécuter de code au moment où elle se déclenche, donc un décompte serait
+exact au moment de la programmation mais potentiellement faux plus tard dans
+la journée. Les rappels sont reprogrammés (annulés puis recréés) à chaque
+changement de réglage et au démarrage de l'app.
+
 ## Modèle de données (`src/store/types.ts`)
 
 ```ts
-CounterList    { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage, archivedAt }
-Counter        { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal, dailyChallenge, archivedAt }
-DailyChallenge { enabled, dailyGoal }
-HistoryEntry   { id, counterId, delta, value, timestamp(ms), source }
-AppSettings    { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake }
+CounterList          { id, name, order, createdAt, newCounterAtTop, hideSumAndAverage, archivedAt }
+Counter              { id, listId, name, value, step, order, createdAt, resetAt, lastClickAt, goal, dailyChallenge, archivedAt }
+DailyChallenge       { enabled, dailyGoal }
+HistoryEntry         { id, counterId, delta, value, timestamp(ms), source }
+AppSettings          { theme, hapticsOnTap, showMinusButton, volumeButtonsEnabled, keepScreenAwake, notifications }
+NotificationSettings { enabled, times }  // times: "HH:MM"[]
 ```
 
 `Counter.goal` porte l'objectif global optionnel : `null` = pas d'objectif,
@@ -119,10 +137,13 @@ seulement depuis l'écran Archive.
 
 **Migration de schéma** : le store est versionné (`persist({ version, migrate })`).
 Chaque champ ajouté à un objet déjà persisté (ex. `dailyChallenge` en v4,
-`archivedAt` en v5) passe par une fonction `migrate` qui complète les
-listes/compteurs déjà sauvegardés (usage réel en cours) plutôt que de risquer
-un crash au premier lancement après mise à jour — à reproduire pour tout futur
-champ du même genre.
+`archivedAt` en v5, `settings.notifications` en v6) passe par une fonction
+`migrate` qui complète les listes/compteurs/réglages déjà sauvegardés (usage
+réel en cours) plutôt que de risquer un crash au premier lancement après
+mise à jour — à reproduire pour tout futur champ du même genre. Important
+pour `settings` en particulier : le `merge` par défaut de `persist` est un
+remplacement peu profond, donc un champ absent du JSON persisté resterait
+`undefined` après réhydratation sans ce passage par `migrate`.
 
 Le pas d'incrément (`step`) est un champ persistant du compteur : on le
 change une fois via le sélecteur (presets +1/+2/+5/+10/+25/+50/+100 ou valeur
@@ -188,21 +209,29 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Statistiques par défi (`list/[listId]/stats.tsx`) : nombre de compteurs actifs, somme, moyenne, min/max, détail par compteur.
 - Page "Objectifs" (ex-"Défi", renommée pour éviter la collision de vocabulaire avec "défi = liste").
 
+**v6 (cette itération)** :
+- Écran Paramètres (`settings.tsx`, lien ⚙ depuis l'accueil) : vibration au clic, bouton volume (déjà dans le store, juste exposés), garder l'écran allumé (`expo-keep-awake`, nouvellement branché à un vrai comportement), notifications de rappel (`expo-notifications`, une ou plusieurs heures configurables).
+
 ### Non traité dans cette itération (à trancher plus tard)
 
-La page Objectifs (`challenge.tsx`) ne liste que les compteurs à objectif
-**global** (`goal`) — les compteurs en défi quotidien seul n'y apparaissent
-pas encore. Ajouter la progression du jour à cette page (probablement avec
-un badge distinguant "objectif global" / "défi du jour") reste un candidat
-pour une itération suivante.
+- La page Objectifs (`challenge.tsx`) ne liste que les compteurs à objectif
+  **global** (`goal`) — les compteurs en défi quotidien seul n'y apparaissent
+  pas encore. Ajouter la progression du jour à cette page (probablement avec
+  un badge distinguant "objectif global" / "défi du jour") reste un candidat
+  pour une itération suivante.
+- Le reste des réglages demandés à terme (langue, thème manuel, taille des
+  compteurs bâtons/texte, mode compact, verrouillage automatique, écran
+  lumineux après décompte, bouton de compte à rebours, affichage des
+  comptages du jour à l'ouverture, masquer bouton "-"/somme) n'a pas été
+  demandé dans ce tour et n'est pas codé.
 
 ## Ordre de priorité pour la suite
 
 1. **Menu contextuel** (export CSV, anecdotes sur les nombres, partage, noter l'app) — regroupe plusieurs petites fonctionnalités indépendantes derrière une même UI (`ActionSheet`), mais chacune ajoute une dépendance : `expo-sharing` + `expo-file-system` pour le CSV/partage, un appel réseau (ex. Numbers API) pour les anecdotes.
-2. **Écran Paramètres** — le plus gros en surface (une quinzaine de réglages) mais le moins structurant : chaque toggle est indépendant et vient étendre `AppSettings`/`CounterList` sans dépendre des autres. Peut se construire en plusieurs passes (affichage → comportement → écran/vibrations) sans bloquer le reste.
+2. **Reste des réglages** (langue, thème, taille/mode compact, verrouillage auto, écran/compte à rebours) — chaque toggle est indépendant, peut se construire en plusieurs passes sans bloquer le reste.
 
 Cet ordre suit la même logique que pour le MVP : d'abord ce qui consomme les
 données déjà en place (historique/calendrier/stats, puis toggle/objectifs/défi
-quotidien), ensuite ce qui ajoute de nouvelles dépendances externes (menu
-contextuel), et enfin la surface de configuration la plus large mais la plus
-indépendante (réglages).
+quotidien, puis archive/stats de défi), ensuite ce qui ajoute de nouvelles
+dépendances externes (menu contextuel), et enfin la surface de configuration
+la plus large mais la plus indépendante (réglages restants).

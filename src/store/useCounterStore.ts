@@ -33,6 +33,7 @@ interface CounterStoreState {
   archiveList: (listId: ID) => void;
   restoreList: (listId: ID) => void;
   toggleNewCounterAtTop: (listId: ID) => void;
+  toggleHideSumAndAverage: (listId: ID) => void;
 
   // Compteurs
   addCounter: (listId: ID, name: string, initialStep?: number) => ID;
@@ -124,6 +125,12 @@ export const useCounterStore = create<CounterStoreState>()(
       toggleNewCounterAtTop: (listId) => {
         set((s) => ({
           lists: s.lists.map((l) => (l.id === listId ? { ...l, newCounterAtTop: !l.newCounterAtTop } : l)),
+        }));
+      },
+
+      toggleHideSumAndAverage: (listId) => {
+        set((s) => ({
+          lists: s.lists.map((l) => (l.id === listId ? { ...l, hideSumAndAverage: !l.hideSumAndAverage } : l)),
         }));
       },
 

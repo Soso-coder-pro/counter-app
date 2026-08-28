@@ -126,9 +126,13 @@ Un seul store Zustand centralisé, persistant automatiquement `lists`,
 `removeCounter`, `setCounterStep`, `incrementCounter`, `decrementCounter`,
 `resetCounter`, `updateSettings`, `setCounterGoal` (v3), `updateDailyChallenge`
 (v4), `archiveList`/`restoreList`/`archiveCounter`/`restoreCounter` (v5),
-plus des sélecteurs dérivés (`getListsSorted`, `getCountersForList`,
-`getHistoryForCounter`, `getListTotals`, `getCountersWithGoals` (v3),
-`getArchivedLists`/`getArchivedCounters` (v5)).
+`toggleHideSumAndAverage` (v7), plus des sélecteurs dérivés (`getListsSorted`,
+`getCountersForList`, `getHistoryForCounter`, `getListTotals`,
+`getCountersWithGoals` (v3), `getArchivedLists`/`getArchivedCounters` (v5)).
+
+`renameList` existe dans le store depuis le MVP mais n'était câblée à aucun
+écran jusqu'en v7 (renommer un défi depuis l'en-tête de sa page, même
+`PromptModal` que pour renommer un compteur).
 
 Depuis v5, `removeList`/`removeCounter` sont des primitives de **suppression
 définitive** — elles ne sont plus appelées directement depuis les écrans
@@ -209,8 +213,12 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Statistiques par défi (`list/[listId]/stats.tsx`) : nombre de compteurs actifs, somme, moyenne, min/max, détail par compteur.
 - Page "Objectifs" (ex-"Défi", renommée pour éviter la collision de vocabulaire avec "défi = liste").
 
-**v6 (cette itération)** :
+**v6** :
 - Écran Paramètres (`settings.tsx`, lien ⚙ depuis l'accueil) : vibration au clic, bouton volume (déjà dans le store, juste exposés), garder l'écran allumé (`expo-keep-awake`, nouvellement branché à un vrai comportement), notifications de rappel (`expo-notifications`, une ou plusieurs heures configurables).
+
+**v7 (cette itération)** :
+- Renommer un défi (liste) depuis l'en-tête de sa page — `renameList` existait dans le store depuis le MVP mais n'était câblée à aucun écran.
+- Masquer total/moyenne par défi (`hideSumAndAverage`), même situation : champ du modèle de données déjà présent, jamais exposé — nouveau toggle `toggleHideSumAndAverage`, même endroit que "Nouveau compteur en haut".
 
 ### Non traité dans cette itération (à trancher plus tard)
 
@@ -222,8 +230,8 @@ liste, +/- avec pas réglable (presets + valeur libre), boutons de volume
 - Le reste des réglages demandés à terme (langue, thème manuel, taille des
   compteurs bâtons/texte, mode compact, verrouillage automatique, écran
   lumineux après décompte, bouton de compte à rebours, affichage des
-  comptages du jour à l'ouverture, masquer bouton "-"/somme) n'a pas été
-  demandé dans ce tour et n'est pas codé.
+  comptages du jour à l'ouverture, masquer bouton "-") n'a pas été demandé
+  dans ce tour et n'est pas codé.
 
 ## Ordre de priorité pour la suite
 

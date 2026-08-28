@@ -24,9 +24,12 @@ export default function ListScreen() {
     useShallow((s) => (listId ? s.getListTotals(listId) : { sum: 0, average: 0, count: 0 }))
   );
   const addCounter = useCounterStore((s) => s.addCounter);
+  const renameList = useCounterStore((s) => s.renameList);
   const toggleNewCounterAtTop = useCounterStore((s) => s.toggleNewCounterAtTop);
+  const toggleHideSumAndAverage = useCounterStore((s) => s.toggleHideSumAndAverage);
   const archiveList = useCounterStore((s) => s.archiveList);
   const [modalVisible, setModalVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
 
   if (!list || !listId) {
     return (
@@ -82,9 +85,14 @@ export default function ListScreen() {
         options={{
           title: list.name,
           headerRight: () => (
-            <Pressable onPress={confirmArchiveList}>
-              <Text style={{ color: colors.danger, fontSize: 15 }}>Archiver</Text>
-            </Pressable>
+            <View style={styles.headerLinks}>
+              <Pressable onPress={() => setRenameModalVisible(true)}>
+                <Text style={{ color: colors.primary, fontSize: 15 }}>Renommer</Text>
+              </Pressable>
+              <Pressable onPress={confirmArchiveList}>
+                <Text style={{ color: colors.danger, fontSize: 15 }}>Archiver</Text>
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -107,6 +115,12 @@ export default function ListScreen() {
       <Pressable onPress={() => toggleNewCounterAtTop(listId)} style={styles.toggleRow}>
         <Text style={{ color: colors.subtext, fontSize: 13 }}>
           Nouveau compteur en haut : {list.newCounterAtTop ? 'activé ✓' : 'désactivé'}
+        </Text>
+      </Pressable>
+
+      <Pressable onPress={() => toggleHideSumAndAverage(listId)} style={styles.toggleRow}>
+        <Text style={{ color: colors.subtext, fontSize: 13 }}>
+          Masquer total/moyenne : {list.hideSumAndAverage ? 'activé ✓' : 'désactivé'}
         </Text>
       </Pressable>
 
@@ -140,12 +154,25 @@ export default function ListScreen() {
         onCancel={() => setModalVisible(false)}
         onSubmit={handleCreate}
       />
+
+      <PromptModal
+        visible={renameModalVisible}
+        title="Renommer le défi"
+        initialValue={list.name}
+        confirmLabel="Enregistrer"
+        onCancel={() => setRenameModalVisible(false)}
+        onSubmit={(name) => {
+          renameList(listId, name);
+          setRenameModalVisible(false);
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerLinks: { flexDirection: 'row', gap: 16 },
   summary: {
     marginHorizontal: 16,
     marginTop: 12,
